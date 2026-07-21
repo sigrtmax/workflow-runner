@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "definition": {
+    "steps": [
+      {
+        "id": "normalize",
+        "type": "transform",
+        "fields": {
+          "email": {
+            "op": "lowercase",
+            "value": { "op": "trim", "value": { "ref": "input.email" } }
+          },
+          "amount": { "op": "toNumber", "value": { "ref": "input.amount" } }
+        }
+      },
+      {
+        "id": "crm",
+        "type": "http",
+        "needs": [{ "step": "normalize" }],
+        "integration": "crm",
+        "path": "/leads",
+        "method": "POST",
+        "body": { "ref": "steps.normalize" },
+        "expectedStatuses": [201],
+        "timeoutMs": 5000,
+        "retry": { "maxAttempts": 3, "backoffMs": 500, "maxBackoffMs": 5000 },
+        "safety": "idempotency-key"
+      },
+      {
+        "id": "accepted",
+        "type": "condition",
+        "needs": [{ "step": "crm" }],
+        "operator": "eq",
+        "left": { "ref": "steps.crm.status" },
+        "right": { "literal": 201 }
+      },
+      {
+        "id": "wait",
+        "type": "delay",
+        "needs": [{ "step": "accepted", "when": true }],
+        "durationMs": 1000
+      },
+      {
+        "id": "erp",
+        "type": "http",
+        "needs": [{ "step": "wait" }],
+        "integration": "erp",
+        "path": "/orders",
+        "method": "POST",
+        "body": { "ref": "steps.normalize" },
+        "expectedStatuses": [201],
+        "timeoutMs": 5000,
+        "retry": { "maxAttempts": 3, "backoffMs": 500, "maxBackoffMs": 5000 },
+        "safety": "idempotency-key"
+      },
+      {
+        "id": "receipt",
+        "type": "transform",
+        "needs": [{ "step": "accepted", "when": true }],
+        "fields": { "crm": { "ref": "steps.crm.body" } }
+      },
+      {
+        "id": "complete",
+        "type": "transform",
+        "needs": [{ "step": "erp" }, { "step": "receipt" }],
+        "fields": {
+          "crm": { "ref": "steps.receipt.crm" },
+          "erp": { "ref": "steps.erp.body" }
+        }
+      }
+    ]
+  }
+}
