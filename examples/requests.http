@@ -1,0 +1,33 @@
+@base = http://127.0.0.1:3000
+@execution = replace-with-execution-id
+
+### Опубликовать неизменяемую версию
+POST {{base}}/workflows/leads/versions
+Content-Type: application/json
+
+< ./lead-to-erp.json
+
+### Запустить; повтор с тем же ключом и содержимым вернёт тот же id
+POST {{base}}/executions
+Content-Type: application/json
+Idempotency-Key: synthetic-lead-001
+
+{"workflowName":"leads","version":1,"input":{"email":" SAMPLE@EXAMPLE.TEST ","amount":"1250"}}
+
+### Состояние и результаты шагов
+GET {{base}}/executions/{{execution}}
+
+### Журнал; следующий after — id последнего события
+GET {{base}}/executions/{{execution}}/events?after=0&limit=100
+
+### Приостановить выдачу новых шагов
+POST {{base}}/executions/{{execution}}/pause
+
+### Продолжить
+POST {{base}}/executions/{{execution}}/resume
+
+### Повторить упавшие шаги
+POST {{base}}/executions/{{execution}}/retry
+Content-Type: application/json
+
+{}
