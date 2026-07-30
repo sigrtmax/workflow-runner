@@ -55,6 +55,6 @@
     "typescript-eslint": "8.62.1"
   },
   "overrides": {
-    "multer": "2.2.0"
+    "multer": "2.3.0"
   }
 }
